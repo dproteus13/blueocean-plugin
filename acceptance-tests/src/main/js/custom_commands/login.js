@@ -4,6 +4,6 @@ exports.command = function (checkfor) {
     this.setValue('#j_username', 'alice');
     this.setValue('input[name=j_password', 'alice');
     this.click('#yui-gen1-button');
-
+    this.pause(3000);
     return this;
 };
