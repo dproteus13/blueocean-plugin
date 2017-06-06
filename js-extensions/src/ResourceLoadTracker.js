@@ -69,25 +69,12 @@ export default class ResourceLoadTracker {
      *
      * @param extensionPointName The extension point name.
      */
-    onMount(extensionPointName, callback) {
+    onMount(extensionPointName) {
         const pointCSS = this.pointCSSs[extensionPointName];
         if (pointCSS) {
-            let counter = 0;
-
-            function onLoad() {
-                counter++;
-                if (counter === pointCSS.length) {
-                    callback();
-                }
-            }
-
             for (var i = 0; i < pointCSS.length; i++) {
-                this._requireCSS(pointCSS[i], () => {
-                    onLoad();
-                });
+                this._requireCSS(pointCSS[i]);
             }
-        } else {
-            callback();
         }
     }
 
@@ -109,12 +96,10 @@ export default class ResourceLoadTracker {
         }
     }
 
-    _requireCSS(pluginCSS, onload) {
+    _requireCSS(pluginCSS) {
         if (!this.activeCSSs[pluginCSS.url]) {
-            this._addCSS(pluginCSS, onload);
+            this._addCSS(pluginCSS);
             this.activeCSSs[pluginCSS.url] = true;
-        } else {
-            onload();
         }
     }
 
@@ -138,17 +123,9 @@ export default class ResourceLoadTracker {
         }
     }
 
-    _addCSS(pluginCSS, onload) {
+    _addCSS(pluginCSS) {
         const cssURL = getPluginCSSURL(pluginCSS);
         jsModules.addCSSToPage(cssURL);
-
-        const linkElId = jsModules.toCSSId(cssURL);
-        const linkEl = document.getElementById(linkElId);
-        if (linkEl) {
-            linkEl.onload = onload;
-        } else {
-            onload();
-        }
     }
 
     _removeCSS(pluginCSS) {
