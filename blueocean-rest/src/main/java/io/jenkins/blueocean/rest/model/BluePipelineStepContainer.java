@@ -17,7 +17,7 @@ public abstract class BluePipelineStepContainer extends Container<BluePipelineSt
         return Iterators.any(iterator(), new StepStatePredicate(state));
     }
 
-    private class StepStatePredicate implements Predicate<BluePipelineStep> {
+    private static class StepStatePredicate implements Predicate<BluePipelineStep> {
 
         private final BlueRunState state;
 
