@@ -29,7 +29,6 @@ import org.jenkinsci.plugins.workflow.cps.replay.ReplayAction;
 import org.jenkinsci.plugins.workflow.cps.replay.ReplayCause;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.support.steps.ExecutorStepExecution;
-import org.jenkinsci.plugins.workflow.support.steps.input.InputAction;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.export.Exported;
 import org.slf4j.Logger;
@@ -38,7 +37,6 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.TimeoutException;
 
 import static io.jenkins.blueocean.rest.model.KnownCapabilities.JENKINS_WORKFLOW_RUN;
 
@@ -98,13 +96,11 @@ public class PipelineRunImpl extends AbstractRunImpl<WorkflowRun> {
 
     @Override
     public BlueRunState getStateObj() {
-        InputAction inputAction = run.getAction(InputAction.class);
-        try {
-            if(inputAction != null && inputAction.getExecutions().size() > 0){
-                return BlueRunState.PAUSED;
-            }
-        } catch (InterruptedException | TimeoutException e) {
-            logger.error("Error getting StateObject from execution context: "+e.getMessage(), e);
+        BluePipelineStepContainer steps = getSteps();
+        if (steps.any(BlueRunState.PAUSED)) {
+            return BlueRunState.PAUSED;
+        } else if (steps.any(BlueRunState.QUEUED)) {
+            return BlueRunState.QUEUED;
         }
         return super.getStateObj();
     }

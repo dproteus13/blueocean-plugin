@@ -1,19 +1,24 @@
 package io.jenkins.blueocean.rest.impl.pipeline;
 
+import com.google.common.base.Objects;
 import hudson.model.Result;
 import io.jenkins.blueocean.rest.model.BlueRun.BlueRunResult;
 import io.jenkins.blueocean.rest.model.BlueRun.BlueRunState;
+import org.jenkinsci.plugins.workflow.actions.ArgumentsAction;
 import org.jenkinsci.plugins.workflow.actions.ErrorAction;
+import org.jenkinsci.plugins.workflow.cps.nodes.StepStartNode;
 import org.jenkinsci.plugins.workflow.graph.AtomNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.pipelinegraphanalysis.TimingInfo;
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
+import org.jenkinsci.plugins.workflow.support.steps.ExecutorStep;
 import org.jenkinsci.plugins.workflow.support.steps.input.InputStep;
 
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -22,6 +27,7 @@ import java.util.List;
  * @author Vivek Pandey
  */
 public class FlowNodeWrapper {
+
     public enum NodeType {STAGE, PARALLEL, STEP}
 
     private final FlowNode node;
@@ -30,6 +36,7 @@ public class FlowNodeWrapper {
     public final List<String> edges = new ArrayList<>();
     public final NodeType type;
     private final String displayName;
+    private final String description;
     private final InputStep inputStep;
     private final WorkflowRun run;
     private String causeOfFailure;
@@ -38,27 +45,61 @@ public class FlowNodeWrapper {
 
     private ErrorAction blockErrorAction;
 
+    public static FlowNodeWrapper createNodeAllocation(FlowNode node, WorkflowRun run) {
+        if (!(node instanceof StepStartNode)) {
+            return null;
+        }
+        StepStartNode startNode = (StepStartNode) node;
+        if (!startNode.getDescriptor().getKlass().toJavaClass().equals(ExecutorStep.class)) {
+            return null;
+        }
+        String cause;
+        try {
+            cause = PipelineNodeUtil.getCauseOfBlockage(node, run);
+        } catch (IOException | InterruptedException e) {
+            cause = null;
+        }
 
+        NodeRunStatus status;
+        String description;
+        if (cause == null) {
+            description = PipelineNodeUtil.getDisplayName(node);
+            status = new NodeRunStatus(BlueRunResult.SUCCESS, BlueRunState.FINISHED);
+        }
+        else {
+            description = cause;
+            status = new NodeRunStatus(BlueRunResult.UNKNOWN, BlueRunState.QUEUED);
+        }
+        return new FlowNodeWrapper(node, status, new TimingInfo(), NodeType.STEP, null, description, null, run);
+    }
 
-    public FlowNodeWrapper(@Nonnull FlowNode node, @Nonnull NodeRunStatus status, @Nonnull TimingInfo timingInfo, @Nonnull  WorkflowRun run) {
+    private FlowNodeWrapper(FlowNode node, NodeRunStatus status, TimingInfo timingInfo, NodeType type, String displayName, String description, InputStep inputStep, WorkflowRun run) {
         this.node = node;
         this.status = status;
         this.timingInfo = timingInfo;
-        this.type = getNodeType(node);
-        this.displayName = PipelineNodeUtil.getDisplayName(node);
-        this.inputStep = null;
+        this.type = type;
+        this.displayName = Objects.firstNonNull(displayName, PipelineNodeUtil.getDisplayName(node));
+        this.inputStep = inputStep;
         this.run = run;
+
+        // Find the appropriate description or nothing
+        String stepArgumentsAsString = ArgumentsAction.getStepArgumentsAsString(node);
+        if (description != null) {
+            this.description = description;
+        } else if (stepArgumentsAsString != null) {
+            this.description = stepArgumentsAsString;
+        } else {
+            this.description = null;
+        }
+    }
+
+    public FlowNodeWrapper(@Nonnull FlowNode node, @Nonnull NodeRunStatus status, @Nonnull TimingInfo timingInfo, @Nonnull  WorkflowRun run) {
+        this(node, status, timingInfo, getNodeType(node), null, null, null, run);
     }
 
     public FlowNodeWrapper(@Nonnull FlowNode node, @Nonnull NodeRunStatus status,
                            @Nonnull TimingInfo timingInfo, @Nullable InputStep inputStep, @Nonnull WorkflowRun run) {
-        this.node = node;
-        this.status = status;
-        this.timingInfo = timingInfo;
-        this.type = getNodeType(node);
-        this.displayName = PipelineNodeUtil.getDisplayName(node);
-        this.inputStep = inputStep;
-        this.run = run;
+        this(node, status, timingInfo, getNodeType(node), null, null, inputStep, run);
     }
 
 
@@ -68,6 +109,10 @@ public class FlowNodeWrapper {
 
     public @Nonnull String getDisplayName() {
         return displayName;
+    }
+
+    public @Nullable String getDescription() {
+        return description;
     }
 
     private static NodeType getNodeType(FlowNode node){

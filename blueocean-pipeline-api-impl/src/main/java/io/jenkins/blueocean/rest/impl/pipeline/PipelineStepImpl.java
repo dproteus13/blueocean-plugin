@@ -22,7 +22,6 @@ import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 import org.acegisecurity.Authentication;
 import org.apache.commons.io.IOUtils;
-import org.jenkinsci.plugins.workflow.actions.ArgumentsAction;
 import org.jenkinsci.plugins.workflow.actions.LogAction;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.support.steps.input.InputAction;
@@ -69,12 +68,12 @@ public class PipelineStepImpl extends BluePipelineStep {
 
     @Override
     public String getDisplayName() {
-        return node.getNode().getDisplayName();
+        return node.getDisplayName();
     }
 
     @Override
     public String getDisplayDescription() {
-        return ArgumentsAction.getStepArgumentsAsString(node.getNode());
+        return node.getDescription();
     }
 
     @Override

@@ -153,25 +153,37 @@ public class PipelineNodeUtil {
             //Check and see if this node block is inside this stage
             for(FlowNode p:nodeBlock.getParents()){
                 if(p.equals(stage)){
-
-                    //see if there is blocked item in queue
-                    for(Queue.Item i: Jenkins.getInstance().getQueue().getItems()){
-                        if(i.task instanceof ExecutorStepExecution.PlaceholderTask){
-                            ExecutorStepExecution.PlaceholderTask task = (ExecutorStepExecution.PlaceholderTask) i.task;
-                            String cause = i.getCauseOfBlockage().getShortDescription();
-                            if(task.getCauseOfBlockage() != null){
-                                cause = task.getCauseOfBlockage().getShortDescription();
-                            }
-
-                            Run r = task.runForDisplay();
-
-                            //Set cause if its there and run and node block in the queue is same as the one we
-                            if(cause != null && r != null && r.equals(run) && task.getNode() != null && task.getNode().equals(nodeBlock)){
-                                return cause;
-                            }
-
-                        }
+                    String cause = getCauseOfBlockage(nodeBlock, run);
+                    if (cause != null) {
+                        return cause;
                     }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Check if this node has a cause for blockage
+     * @param node to check
+     * @param run to check
+     * @return cause
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    public static @CheckForNull String getCauseOfBlockage(@Nonnull FlowNode node, @Nonnull WorkflowRun run) throws IOException, InterruptedException {
+        //see if there is blocked item in queue
+        for(Queue.Item i: Jenkins.getInstance().getQueue().getItems()) {
+            if(i.task instanceof ExecutorStepExecution.PlaceholderTask){
+                ExecutorStepExecution.PlaceholderTask task = (ExecutorStepExecution.PlaceholderTask) i.task;
+                String cause = i.getCauseOfBlockage().getShortDescription();
+                if(task.getCauseOfBlockage() != null){
+                    cause = task.getCauseOfBlockage().getShortDescription();
+                }
+                Run r = task.runForDisplay();
+                //Set cause if its there and run and node block in the queue is same as the one we
+                if(cause != null && r != null && r.equals(run) && task.getNode() != null && task.getNode().equals(node)){
+                    return cause;
                 }
             }
         }

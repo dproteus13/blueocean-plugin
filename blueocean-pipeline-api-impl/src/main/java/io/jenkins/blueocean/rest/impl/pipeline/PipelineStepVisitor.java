@@ -143,7 +143,7 @@ public class PipelineStepVisitor extends StandardChunkVisitor {
                         }
                     };
 
-                    FlowNodeWrapper stepNode = new FlowNodeWrapper(step, new NodeRunStatus(BlueRun.BlueRunResult.UNKNOWN, BlueRun.BlueRunState.QUEUED),new TimingInfo(), run);
+                    FlowNodeWrapper stepNode = new FlowNodeWrapper(step, new NodeRunStatus(BlueRun.BlueRunResult.UNKNOWN, BlueRun.BlueRunState.QUEUED),new TimingInfo(), run); // todo
                     steps.push(stepNode);
                     stepMap.put(step.getId(), stepNode);
                 }
@@ -216,6 +216,13 @@ public class PipelineStepVisitor extends StandardChunkVisitor {
                 node.setBlockErrorAction(closestEndNode.getError());
                 closestEndNode = null; //prepare for next block
             }
+        }
+
+        // If this step is a node allocation step make it visible to the user
+        FlowNodeWrapper nodeAllocation = FlowNodeWrapper.createNodeAllocation(atomNode, run);
+        if (nodeAllocation != null) {
+            steps.add(nodeAllocation);
+            stepMap.put(nodeAllocation.getId(), nodeAllocation);
         }
     }
 
