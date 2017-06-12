@@ -33,6 +33,7 @@ import static org.junit.Assert.assertEquals;
  * @author Ivan Meredith
  */
 public class AbstractRunImplTest extends PipelineBaseTest {
+
     @Rule
     public GitSampleRepoRule sampleRepo = new GitSampleRepoRule();
 
@@ -137,17 +138,10 @@ public class AbstractRunImplTest extends PipelineBaseTest {
         Assert.assertEquals(m.get("artifactsZipFile"), "/job/artifactTest/1/artifact/*zip*/archive.zip");
     }
 
-    @Test(timeout = 20000)
+    @Test(timeout = DEFAULT_TEST_TIMEOUT)
     @Issue("JENKINS-44736")
     public void earlyUnstableStatusShouldReportPunStateAsRunningAndResultAsUnknown() throws Exception {
-        WorkflowJob p = j.createProject(WorkflowJob.class, "project");
-
-        URL resource = Resources.getResource(getClass(), "earlyUnstableStatusShouldReportPunStateAsRunningAndResultAsUnknown.jenkinsfile");
-        String jenkinsFile = Resources.toString(resource, Charsets.UTF_8);
-        p.setDefinition(new CpsFlowDefinition(jenkinsFile, true));
-        p.save();
-
-        Run r = p.scheduleBuild2(0).waitForStart();
+        Run r = createFromJenkinsfile("earlyUnstableStatusShouldReportPunStateAsRunningAndResultAsUnknown.jenkinsfile");
 
         String url = "/organizations/jenkins/pipelines/project/runs/" + r.getId() + "/";
         Map m = request().get(url).build(Map.class);

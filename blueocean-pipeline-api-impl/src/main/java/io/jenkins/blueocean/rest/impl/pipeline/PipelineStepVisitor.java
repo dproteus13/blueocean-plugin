@@ -159,6 +159,14 @@ public class PipelineStepVisitor extends StandardChunkVisitor {
 
     @Override
     public void atomNode(@CheckForNull FlowNode before, @Nonnull FlowNode atomNode, @CheckForNull FlowNode after, @Nonnull ForkScanner scan) {
+
+        // If this step is a node allocation step make it visible to the user
+        FlowNodeWrapper nodeAllocation = FlowNodeWrapper.createNodeAllocation(atomNode, run);
+        if (nodeAllocation != null) {
+            steps.add(nodeAllocation);
+            stepMap.put(nodeAllocation.getId(), nodeAllocation);
+        }
+
         if(stageStepsCollectionCompleted && !PipelineNodeUtil.isSyntheticStage(currentStage)){
             return;
         }
@@ -216,13 +224,6 @@ public class PipelineStepVisitor extends StandardChunkVisitor {
                 node.setBlockErrorAction(closestEndNode.getError());
                 closestEndNode = null; //prepare for next block
             }
-        }
-
-        // If this step is a node allocation step make it visible to the user
-        FlowNodeWrapper nodeAllocation = FlowNodeWrapper.createNodeAllocation(atomNode, run);
-        if (nodeAllocation != null) {
-            steps.add(nodeAllocation);
-            stepMap.put(nodeAllocation.getId(), nodeAllocation);
         }
     }
 

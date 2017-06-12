@@ -53,16 +53,79 @@ public class PipelineNodeTest extends PipelineBaseTest {
     }
 
     @Test
+    public void nodeAllocationStep() throws Exception {
+        Run r = createFromJenkinsfile("nodeAllocationStep.jenkinsfile");
+        j.waitForCompletion(r);
+
+        List<Map> resp = get("/organizations/jenkins/pipelines/project/runs/" + r.getId() + "/steps/", List.class);
+
+        Assert.assertEquals(2, resp.size());
+
+        Map firstStep = resp.get(0);
+        Assert.assertEquals("SUCCESS", firstStep.get("result"));
+        Assert.assertEquals("FINISHED", firstStep.get("state"));
+
+        Map secondStep = resp.get(1);
+        Assert.assertEquals("FAILURE", secondStep.get("result"));
+        Assert.assertEquals("FINISHED", secondStep.get("state"));
+    }
+
+    @Test(timeout = DEFAULT_TEST_TIMEOUT)
+    public void pipelineShouldBeQueuedWhenStepIsQueued() throws Exception {
+        Run r = createFromJenkinsfile("pipelineShouldBeQueuedWhenStepIsQueued.jenkinsfile");
+
+        List<Map> resp;
+
+        resp = waitUntilStepsAppear(r, 2);
+
+        Map firstStep = resp.get(0);
+        Assert.assertEquals("SUCCESS", firstStep.get("result"));
+        Assert.assertEquals("FINISHED", firstStep.get("state"));
+
+        Map secondStep = resp.get(1);
+        Assert.assertEquals("UNKNOWN", secondStep.get("result"));
+        Assert.assertEquals("QUEUED", secondStep.get("state"));
+
+        // The state should be queued because one of the steps are queued
+        Map result = get("/organizations/jenkins/pipelines/project/runs/" + r.getId(), Map.class);
+        Assert.assertEquals("UNKNOWN", result.get("result"));
+        Assert.assertEquals("QUEUED", result.get("state"));
+    }
+
+    @Test(timeout = DEFAULT_TEST_TIMEOUT)
+    public void pipelineShouldBeQueuedWhenStepInParallelIsQueued() throws Exception {
+        Run r = createFromJenkinsfile("pipelineShouldBeQueuedWhenStepInParallelIsQueued.jenkinsfile");
+
+        List<Map> resp;
+
+        resp = waitUntilStepsAppear(r, 3);
+
+        // Echo in first parallel branch
+        Map firstStep = resp.get(0);
+        Assert.assertEquals("SUCCESS", firstStep.get("result"));
+        Assert.assertEquals("FINISHED", firstStep.get("state"));
+
+        // Echo in second parallel branch
+        Map secondStep = resp.get(1);
+        Assert.assertEquals("SUCCESS", secondStep.get("result"));
+        Assert.assertEquals("FINISHED", secondStep.get("state"));
+
+        // Third step is queued, making the run queued
+        // Note that this step is the node acquisition
+        Map thirdStep = resp.get(2);
+        Assert.assertEquals("UNKNOWN", thirdStep.get("result"));
+        Assert.assertEquals("QUEUED", thirdStep.get("state"));
+
+        // The state should be queued because one of the steps are queued
+        Map result = get("/organizations/jenkins/pipelines/project/runs/" + r.getId(), Map.class);
+        Assert.assertEquals("UNKNOWN", result.get("result"));
+        Assert.assertEquals("QUEUED", result.get("state"));
+    }
+
+    @Test
     @Issue("JENKINS-44742")
     public void successfulStepWithBlockFailureAfterward() throws Exception {
-        WorkflowJob p = j.createProject(WorkflowJob.class, "project");
-
-        URL resource = Resources.getResource(getClass(), "successfulStepWithBlockFailureAfterward.jenkinsfile");
-        String jenkinsFile = Resources.toString(resource, Charsets.UTF_8);
-        p.setDefinition(new CpsFlowDefinition(jenkinsFile, true));
-        p.save();
-
-        Run r = p.scheduleBuild2(0).waitForStart();
+        Run r = createFromJenkinsfile("successfulStepWithBlockFailureAfterward.jenkinsfile");
 
         j.waitForCompletion(r);
 
@@ -2405,6 +2468,18 @@ public class PipelineNodeTest extends PipelineBaseTest {
         return null;
     }
 
+    private List<Map> waitUntilStepsAppear(Run r, int numSteps) throws InterruptedException {
+        List<Map> resp;
+        while(true) {
+            resp = get("/organizations/jenkins/pipelines/project/runs/" + r.getId() + "/steps/", List.class);
+            if (resp.size() < numSteps) {
+                Thread.sleep(100);
+            } else {
+                break;
+            }
+        }
+        return resp;
+    }
 
     private static boolean waitForBuildCount(WorkflowJob job, int numBuilds, Result status) throws InterruptedException {
         long start = System.currentTimeMillis();

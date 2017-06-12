@@ -1,0 +1,7 @@
+
+stage('a cool stage') {
+    echo 'first'
+    node ('does-not-exist') {
+        echo "never executed"
+    }
+}

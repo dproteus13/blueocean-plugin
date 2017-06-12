@@ -1,0 +1,14 @@
+
+stage('a cool stage') {
+    parallel(
+        "branch1": {
+            echo "all done"
+        },
+        "branch2": {
+            echo 'starting second branch'
+            node ('does-not-exist') {
+                echo "never executed"
+            }
+        }
+    )
+}

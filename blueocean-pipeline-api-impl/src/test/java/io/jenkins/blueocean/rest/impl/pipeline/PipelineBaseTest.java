@@ -1,7 +1,9 @@
 package io.jenkins.blueocean.rest.impl.pipeline;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.common.base.Charsets;
 import com.google.common.base.Strings;
+import com.google.common.io.Resources;
 import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.ObjectMapper;
 import com.mashape.unirest.http.Unirest;
@@ -19,6 +21,7 @@ import org.acegisecurity.adapters.PrincipalAcegiUserToken;
 import org.acegisecurity.context.SecurityContextHolder;
 import org.acegisecurity.userdetails.UserDetails;
 import org.jenkinsci.plugins.workflow.actions.ThreadNameAction;
+import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.graphanalysis.ForkScanner;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
@@ -29,18 +32,21 @@ import org.jenkinsci.plugins.workflow.support.visualization.table.FlowGraphTable
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
+import org.junit.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.logging.LogManager;
 
 import static io.jenkins.blueocean.auth.jwt.JwtToken.X_BLUEOCEAN_JWT;
@@ -51,6 +57,9 @@ import static org.junit.Assert.fail;
  */
 public abstract class PipelineBaseTest{
     private static  final Logger LOGGER = LoggerFactory.getLogger(PipelineBaseTest.class);
+
+    /** Default test timeout to be used with {@link Test#timeout()} **/
+    public static final int DEFAULT_TEST_TIMEOUT = 20000;
 
     public PipelineBaseTest() {
         System.setProperty("BLUEOCEAN_FEATURE_JWT_AUTHENTICATION", "true");
@@ -400,6 +409,16 @@ public abstract class PipelineBaseTest{
             }
         }
         return parallelNodes;
+    }
+
+    /** Creates a new standalone pipeline from the specified Jenkinsfile resource and executes it **/
+    protected Run createFromJenkinsfile(String jenkinsfile) throws IOException, InterruptedException, ExecutionException {
+        WorkflowJob p = j.createProject(WorkflowJob.class, "project");
+        URL resource = Resources.getResource(getClass(), jenkinsfile);
+        String jenkinsFile = Resources.toString(resource, Charsets.UTF_8);
+        p.setDefinition(new CpsFlowDefinition(jenkinsFile, true));
+        p.save();
+        return p.scheduleBuild2(0).waitForStart();
     }
 
     public RequestBuilder request() {

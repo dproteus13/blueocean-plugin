@@ -49,6 +49,7 @@ public class FlowNodeWrapper {
         if (!(node instanceof StepStartNode)) {
             return null;
         }
+
         StepStartNode startNode = (StepStartNode) node;
         if (!startNode.getDescriptor().getKlass().toJavaClass().equals(ExecutorStep.class)) {
             return null;
